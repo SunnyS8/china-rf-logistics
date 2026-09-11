@@ -45,13 +45,12 @@ export const PriceChart: React.FC<Props> = ({ history, currentQuotes }) => {
       });
     });
 
-    if (snapshots.length > 0) {
-      currentQuotes.forEach(q => {
-        const total = calculateQuoteCost(q, DEFAULT_RATES).totalWithVatUsd;
-        if (!Number.isFinite(total)) return;
-        pushPoint(`${q.forwarderName}|${q.destination}`, quoteLabel(q), PALETTE[seriesMap.size % PALETTE.length], 'сейчас', total);
-      });
-    }
+    // Текущие ставки показываем всегда (точка «сейчас»), даже без истории
+    currentQuotes.forEach(q => {
+      const total = calculateQuoteCost(q, DEFAULT_RATES).totalWithVatUsd;
+      if (!Number.isFinite(total)) return;
+      pushPoint(`${q.forwarderName}|${q.destination}`, quoteLabel(q), PALETTE[seriesMap.size % PALETTE.length], 'сейчас', total);
+    });
 
     const series = [...seriesMap.values()]
       .filter(s => s.points.length >= 1)

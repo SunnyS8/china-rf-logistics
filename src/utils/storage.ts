@@ -136,7 +136,12 @@ const STORAGE_KEY = 'logistics_parse_history';
 export function getHistory(): ParsedSnapshot[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    // Ремонтируем старые снимки: заполняем недостающие поля и статьи затрат
+    return (parsed || []).map((s: ParsedSnapshot) => ({
+      ...s,
+      quotes: normalizeQuotes(s.quotes || []),
+    }));
   } catch {
     return [];
   }
