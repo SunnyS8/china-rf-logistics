@@ -9,9 +9,9 @@ interface Props {
 }
 
 const ROUTE_META: Record<string, { label: string; color: string }> = {
-  sea: { label: 'Море (Hаперевозка)', color: '#2563eb' },
+  sea: { label: 'Море + Ж/Д', color: '#2563eb' },
   direct: { label: 'Прямое ЖД', color: '#059669' },
-  deepsea: { label: 'Deep Sea (Дальний Восток)', color: '#d97706' },
+  deepsea: { label: 'Deep Sea (Новороссийск)', color: '#d97706' },
 };
 
 interface Grouped {
