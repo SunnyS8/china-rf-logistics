@@ -13,16 +13,21 @@ interface Props {
 export const AnalyticsView: React.FC<Props> = ({ quotes, rates, history }) => {
   const [tab, setTab] = useState<'prices' | 'routes'>('prices');
   const [pdfPending, setPdfPending] = useState(false);
+  const [pdfMode, setPdfMode] = useState(false);
 
   const handlePdf = async () => {
     setPdfPending(true);
+    setPdfMode(true);
     try {
+      // Даём React отрисовать оба графика перед захватом
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
       const { downloadPdfReport } = await import('../utils/pdfReport');
       await downloadPdfReport('report-content', `Логистический_отчёт_${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (e) {
       console.error(e);
       alert('Не удалось сформировать PDF-отчёт');
     } finally {
+      setPdfMode(false);
       setPdfPending(false);
     }
   };
@@ -59,7 +64,18 @@ export const AnalyticsView: React.FC<Props> = ({ quotes, rates, history }) => {
         </button>
       </div>
 
-      {tab === 'prices' ? (
+      {pdfMode ? (
+        <div className="space-y-8">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">График цен по перевозчикам</h3>
+            <PriceChart history={history} currentQuotes={quotes} />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">Сравнение маршрутов: Море vs Прямое ЖД</h3>
+            <RouteComparison quotes={quotes} rates={rates} />
+          </div>
+        </div>
+      ) : tab === 'prices' ? (
         <PriceChart history={history} currentQuotes={quotes} />
       ) : (
         <RouteComparison quotes={quotes} rates={rates} />
