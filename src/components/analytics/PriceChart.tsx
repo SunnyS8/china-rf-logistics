@@ -34,17 +34,22 @@ export const PriceChart: React.FC<Props> = ({ history, currentQuotes }) => {
       s.points.push({ date, value });
     };
 
+    const quoteLabel = (q: ForwarderQuote) =>
+      `${q.forwarderName?.trim() || 'Перевозчик'} (${q.destination || '—'})`;
+
     snapshots.forEach(snap => {
       snap.quotes.forEach(q => {
         const total = calculateQuoteCost(q, DEFAULT_RATES).totalWithVatUsd;
-        pushPoint(`${q.forwarderName}|${q.destination}`, `${q.forwarderName} (${q.destination})`, PALETTE[seriesMap.size % PALETTE.length], shortDate(snap.date), total);
+        if (!Number.isFinite(total)) return;
+        pushPoint(`${q.forwarderName}|${q.destination}`, quoteLabel(q), PALETTE[seriesMap.size % PALETTE.length], shortDate(snap.date), total);
       });
     });
 
     if (snapshots.length > 0) {
       currentQuotes.forEach(q => {
         const total = calculateQuoteCost(q, DEFAULT_RATES).totalWithVatUsd;
-        pushPoint(`${q.forwarderName}|${q.destination}`, `${q.forwarderName} (${q.destination})`, PALETTE[seriesMap.size % PALETTE.length], 'сейчас', total);
+        if (!Number.isFinite(total)) return;
+        pushPoint(`${q.forwarderName}|${q.destination}`, quoteLabel(q), PALETTE[seriesMap.size % PALETTE.length], 'сейчас', total);
       });
     }
 

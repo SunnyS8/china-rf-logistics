@@ -1,4 +1,4 @@
-import { ForwarderQuote } from '../types/logistics';
+import { CostComponent, Currency, ForwarderQuote } from '../types/logistics';
 
 export interface ParsedSnapshot {
   id: string;
@@ -95,13 +95,34 @@ export function validateAllQuotes(quotes: ForwarderQuote[]): Map<string, Validat
 // --- Migration of old-structure quotes ---
 export function normalizeQuote(q: Partial<ForwarderQuote>): ForwarderQuote {
   const is20 = (q.containerSize === '20GP') || /20\s*['']?\s*GP/i.test(q.equipment || '');
+  const cost = (c: Partial<CostComponent> | undefined, defaultCurrency: Currency): CostComponent => ({
+    amount: Number(c?.amount) || 0,
+    currency: c?.currency || defaultCurrency,
+  });
   return {
+    forwarderName: q.forwarderName ?? '',
+    destination: q.destination || 'Серпухов',
+    originPort: q.originPort || 'Шанхай',
+    routeType: q.routeType || 'sea_vvo_rail_truck',
+    transitHub: q.transitHub || '',
+    routeDescription: q.routeDescription || '',
+    oceanFreight: cost(q.oceanFreight, 'USD'),
+    railFreight: cost(q.railFreight, 'RUB'),
+    truckDelivery: cost(q.truckDelivery, 'RUB'),
+    forwarderFee: cost(q.forwarderFee, 'RUB'),
+    terminalExpenses: cost(q.terminalExpenses, 'RUB'),
+    transitDaysMin: q.transitDaysMin || 25,
+    transitDaysMax: q.transitDaysMax || 40,
+    equipment: q.equipment || (is20 ? "20'GP" : "40'HC"),
     containerSize: is20 ? '20GP' : (q.containerSize || '40HC'),
     weightTons: q.weightTons ?? 26,
     maxWeightTons: q.maxWeightTons ?? (is20 ? 21 : 20),
     overweightRateRub: q.overweightRateRub ?? 2000,
     vatRate: q.vatRate ?? 20,
-    ...q,
+    validUntil: q.validUntil || '2026-10-31',
+    comments: q.comments || '',
+    favorite: q.favorite,
+    note: q.note,
   } as ForwarderQuote;
 }
 
