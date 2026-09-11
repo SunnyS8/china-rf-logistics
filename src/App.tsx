@@ -171,6 +171,11 @@ export default function App() {
     downloadExcelTemplate();
   };
 
+  const handleDownloadRfq = async () => {
+    const { downloadRfqTemplate } = await import('./utils/excelTemplate');
+    downloadRfqTemplate();
+  };
+
   const handleExportSettings = () => {
     const blob = new Blob([exportAllData()], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -387,6 +392,7 @@ export default function App() {
             onOpenImportModal={() => setIsImportModalOpen(true)}
             onExportJSON={handleExportJSON}
             onDownloadTemplate={handleDownloadTemplate}
+            onDownloadRfq={handleDownloadRfq}
             onExportSettings={handleExportSettings}
             onImportSettings={handleImportSettings}
             onResetQuotes={handleResetQuotes}

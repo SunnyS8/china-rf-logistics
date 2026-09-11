@@ -30,6 +30,7 @@ import {
   Search,
   Star,
   FileSpreadsheet,
+  FileText,
   Settings,
   StickyNote
 } from 'lucide-react';
@@ -45,6 +46,7 @@ interface Props {
   onOpenImportModal: () => void;
   onExportJSON: () => void;
   onDownloadTemplate: () => void;
+  onDownloadRfq: () => void;
   onExportSettings: () => void;
   onImportSettings: (text: string) => void;
   onResetQuotes: () => void;
@@ -62,6 +64,7 @@ export const LogisticsTable: React.FC<Props> = ({
   onOpenImportModal,
   onExportJSON,
   onDownloadTemplate,
+  onDownloadRfq,
   onExportSettings,
   onImportSettings,
   onResetQuotes,
@@ -264,6 +267,22 @@ export const LogisticsTable: React.FC<Props> = ({
             >
               <Download className="w-4 h-4" />
               JSON
+            </button>
+            <button
+              onClick={onDownloadTemplate}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold border border-slate-200 transition"
+              title="Скачать Excel-шаблон для ручного ввода ставок"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Шаблон
+            </button>
+            <button
+              onClick={onDownloadRfq}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold border border-indigo-200 transition"
+              title="Скачать форму запроса цен для перевозчиков (RFQ)"
+            >
+              <FileText className="w-4 h-4" />
+              Запрос цен
             </button>
             <button
               onClick={onResetQuotes}

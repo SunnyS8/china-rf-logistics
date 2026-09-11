@@ -194,6 +194,16 @@ export const ImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, onOpen
               Шаблон Excel
             </button>
             <button
+              onClick={async () => {
+                const { downloadRfqTemplate } = await import('../utils/excelTemplate');
+                downloadRfqTemplate();
+              }}
+              title="Форма запроса цен для перевозчиков"
+              className="text-xs px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 font-medium hover:bg-indigo-100 transition"
+            >
+              Запрос цен
+            </button>
+            <button
               onClick={onOpenHistory}
               className="text-xs px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 font-medium hover:bg-amber-100 transition"
             >

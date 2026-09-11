@@ -21,6 +21,8 @@ interface RawRoute {
   maxWeightTons: number;
   overweightRateRub: number;
   vatRate: number;
+  validUntil?: string;
+  comments?: string;
 }
 
 function parseNumber(str: string): number {
@@ -345,6 +347,152 @@ function parsePortQingdaoExcel(workbook: XLSX.WorkBook): RawRoute[] {
   return routes;
 }
 
+function detectRfqHeader(ws: XLSX.WorkSheet): { rowIdx: number; cols: Record<string, number> } | null {
+  const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+  for (let i = 0; i < data.length; i++) {
+    const rowTexts = (data[i] || []).map(c => String(c ?? '').trim());
+    if (!rowTexts.some(t => t.includes('Морской')) || !rowTexts.some(t => t.includes('Порт отправки'))) continue;
+
+    const cols: Record<string, number> = {};
+    rowTexts.forEach((t, idx) => {
+      const s = t.toLowerCase();
+      if (s.includes('порт отправки')) cols.originPort = idx;
+      else if (s.includes('тип маршрута')) cols.routeType = idx;
+      else if (s.includes('склад назначения')) cols.destination = idx;
+      else if (s.includes('контейнер')) cols.container = idx;
+      else if (s.includes('вес груза')) cols.weight = idx;
+      else if (s.includes('макс') && s.includes('вес')) cols.maxWeight = idx;
+      else if (s.includes('морской') && s.includes('фрахт')) cols.freight = idx;
+      else if (s.includes('ж/д') || s.includes('жд плечо')) cols.rail = idx;
+      else if (s.includes('автовывоз') || s.includes('авто')) cols.truck = idx;
+      else if (s.includes('экспедир')) cols.fee = idx;
+      else if (s.includes('терминаль') || s.includes('dthc') || s.includes('свх')) cols.terminal = idx;
+      else if (s.includes('срок доставки') || s.includes('срок')) cols.days = idx;
+      else if (s.includes('перевес')) cols.overweight = idx;
+      else if (s.includes('ндс')) cols.vat = idx;
+      else if (s.includes('действительна')) cols.valid = idx;
+      else if (s.includes('примечан')) cols.comments = idx;
+    });
+    return { rowIdx: i, cols };
+  }
+  return null;
+}
+
+export function detectRfqWorkbook(workbook: XLSX.WorkBook): boolean {
+  return workbook.SheetNames.some(sheetName => {
+    const ws = workbook.Sheets[sheetName];
+    return !!detectRfqHeader(ws);
+  });
+}
+
+function parseDaysRange(text: string): [number, number] | null {
+  if (!text) return null;
+  const m = String(text).match(/(\d{1,3})\s*[-–]\s*(\d{1,3})/);
+  if (m) return [parseInt(m[1]), parseInt(m[2])];
+  const single = String(text).match(/(\d{1,3})/);
+  if (single) {
+    const d = parseInt(single[1]);
+    return [d, d + 5];
+  }
+  return null;
+}
+
+function parseDateCell(val: any): string | undefined {
+  if (val === undefined || val === null || val === '') return undefined;
+  if (typeof val === 'number') {
+    const days = Math.round((val - 25569) * 86400 * 1000);
+    return new Date(days).toISOString().slice(0, 10);
+  }
+  const s = String(val).trim();
+  const ru = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  if (ru) return `${ru[3]}-${ru[2].padStart(2, '0')}-${ru[1].padStart(2, '0')}`;
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) return `${iso[1]}-${iso[2].padStart(2, '0')}-${iso[3].padStart(2, '0')}`;
+  return undefined;
+}
+
+export function parseRfqExcel(workbook: XLSX.WorkBook, fileName: string): RawRoute[] {
+  const routes: RawRoute[] = [];
+  let carrier = fileName.replace(/\.(xlsx|xls)$/i, '') || 'Перевозчик';
+
+  workbook.SheetNames.forEach(sheetName => {
+    const ws = workbook.Sheets[sheetName];
+    const header = detectRfqHeader(ws);
+    if (!header) return;
+    const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+    const cols = header.cols;
+
+    // Ищем название перевозчика в шапке выше таблицы
+    for (let i = 0; i < header.rowIdx; i++) {
+      const row = data[i] || [];
+      for (let j = 0; j < row.length; j++) {
+        const cell = String(row[j] ?? '').trim();
+        if ((cell.includes('Перевозчик') || cell.includes('Компания')) && row[j + 1] != null) {
+          const name = String(row[j + 1]).trim();
+          if (name && name !== '') {
+            carrier = name;
+            break;
+          }
+        }
+      }
+      if (carrier !== fileName.replace(/\.(xlsx|xls)$/i, '')) break;
+    }
+
+    for (let i = header.rowIdx + 1; i < data.length; i++) {
+      const row = data[i] || [];
+      const cell = (idx?: number) => (idx !== undefined ? String(row[idx] ?? '').trim() : '');
+
+      const freight = parseNumber(cell(cols.freight));
+      const rail = parseNumber(cell(cols.rail));
+      const truck = parseNumber(cell(cols.truck));
+      const fee = parseNumber(cell(cols.fee));
+      const terminal = parseNumber(cell(cols.terminal));
+      if (freight + rail + truck + fee + terminal === 0) continue;
+
+      const containerText = `${cell(cols.container)} ${cell(cols.weight)}т ${cell(cols.maxWeight)}т`.trim();
+      const routeTypeText = cell(cols.routeType);
+      const destinationText = `${cell(cols.destination)} ${routeTypeText}`;
+
+      const days = parseDaysRange(cell(cols.days));
+      const vatRaw = parseNumber(cell(cols.vat));
+      const vatRate = /без ндс/i.test(cell(cols.vat)) || cell(cols.vat).trim() === '0' ? 0 : (vatRaw || 20);
+
+      const originPort = cell(cols.originPort) || 'Шанхай';
+      const routeDescription = [
+        routeTypeText,
+        cell(cols.destination) ? `до ${cell(cols.destination)}` : '',
+        containerText ? `контейнер ${containerText}` : ''
+      ].filter(Boolean).join(', ');
+
+      routes.push(defaultRawRoute({
+        carrier,
+        sheet: sheetName,
+        destination: detectDestination(destinationText),
+        routeType: detectRouteType(routeTypeText),
+        originPort,
+        transitHub: '',
+        routeDescription: routeDescription.substring(0, 200),
+        freightUsd: freight,
+        railRub: rail,
+        truckRub: truck,
+        forwardingRub: fee,
+        terminalRub: terminal,
+        transitDaysMin: days ? days[0] : 25,
+        transitDaysMax: days ? days[1] : 40,
+        containerSize: detectContainerSize(cell(cols.container)),
+        weightTons: parseNumber(cell(cols.weight)) || 26,
+        maxWeightTons: parseNumber(cell(cols.maxWeight)) || 20,
+        overweightRateRub: parseNumber(cell(cols.overweight)) || 2000,
+        vatRate,
+        validUntil: parseDateCell(row[cols.valid]),
+        comments: cell(cols.comments)
+      }));
+    }
+  });
+
+  return routes;
+}
+
 function rawRouteToQuote(raw: RawRoute, idx: number): ForwarderQuote {
   return {
     id: `parsed-${Date.now()}-${idx}`,
@@ -367,8 +515,8 @@ function rawRouteToQuote(raw: RawRoute, idx: number): ForwarderQuote {
     transitDaysMin: raw.transitDaysMin || 25,
     transitDaysMax: raw.transitDaysMax || 40,
     equipment: raw.containerSize === '20GP' ? "20'GP" : "40'HC",
-    validUntil: '2026-10-31',
-    comments: ''
+    validUntil: raw.validUntil || '2026-10-31',
+    comments: raw.comments || ''
   };
 }
 
@@ -381,7 +529,9 @@ export function parseExcelFile(file: File): Promise<ForwarderQuote[]> {
       let routes: RawRoute[] = [];
       const fileName = file.name.toLowerCase();
 
-      if (fileName.includes('игл')) {
+      if (detectRfqWorkbook(workbook)) {
+        routes = parseRfqExcel(workbook, file.name);
+      } else if (fileName.includes('игл')) {
         routes = parseIglExcel(workbook);
       } else if (fileName.includes('галеос')) {
         routes = parseGaleosExcel(workbook);
