@@ -185,6 +185,15 @@ export const ImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, onOpen
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={async () => {
+                const { downloadExcelTemplate } = await import('../utils/excelTemplate');
+                downloadExcelTemplate();
+              }}
+              className="text-xs px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-medium hover:bg-slate-200 transition"
+            >
+              Шаблон Excel
+            </button>
+            <button
               onClick={onOpenHistory}
               className="text-xs px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 font-medium hover:bg-amber-100 transition"
             >

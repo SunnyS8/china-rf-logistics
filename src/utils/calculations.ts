@@ -1,4 +1,4 @@
-import { CostComponent, ForwarderQuote } from '../types/logistics';
+import { CostComponent, ExchangeRates, ForwarderQuote } from '../types/logistics';
 
 export interface CalculatedCost {
   totalUsd: number;
@@ -23,14 +23,18 @@ export interface CalculatedCost {
   totalWithoutVatRub: number;
 }
 
-export function toUsd(comp: CostComponent, rate: number): number {
-  if (comp.currency === 'USD') return comp.amount;
-  return rate > 0 ? comp.amount / rate : 0;
+export function toRub(comp: CostComponent, rates: ExchangeRates): number {
+  switch (comp.currency) {
+    case 'RUB': return comp.amount;
+    case 'EUR': return comp.amount * rates.eurRub;
+    case 'CNY': return comp.amount * rates.cnyRub;
+    case 'USD':
+    default: return comp.amount * rates.usdRub;
+  }
 }
 
-export function toRub(comp: CostComponent, rate: number): number {
-  if (comp.currency === 'RUB') return comp.amount;
-  return comp.amount * rate;
+export function toUsd(comp: CostComponent, rates: ExchangeRates): number {
+  return rates.usdRub > 0 ? toRub(comp, rates) / rates.usdRub : 0;
 }
 
 /** Доплата за перевес: (фактический вес - включённый тоннаж) * тариф за тонну */
@@ -40,33 +44,33 @@ export function calcOverweightRub(quote: ForwarderQuote): number {
   return Math.ceil(overweight) * quote.overweightRateRub;
 }
 
-export function calculateQuoteCost(quote: ForwarderQuote, rate: number): CalculatedCost {
+export function calculateQuoteCost(quote: ForwarderQuote, rates: ExchangeRates): CalculatedCost {
   const vatRate = quote.vatRate / 100;
 
   // International ocean freight — always without VAT
-  const oceanUsd = toUsd(quote.oceanFreight, rate);
-  const oceanRub = oceanUsd * rate;
+  const oceanUsd = toUsd(quote.oceanFreight, rates);
+  const oceanRub = oceanUsd * rates.usdRub;
 
   // Russian services (rail, truck, forwarding, terminal) — subject to VAT
-  const railUsd = toUsd(quote.railFreight, rate);
-  const truckUsd = toUsd(quote.truckDelivery, rate);
-  const feeUsd = toUsd(quote.forwarderFee, rate);
-  const termUsd = toUsd(quote.terminalExpenses, rate);
+  const railUsd = toUsd(quote.railFreight, rates);
+  const truckUsd = toUsd(quote.truckDelivery, rates);
+  const feeUsd = toUsd(quote.forwarderFee, rates);
+  const termUsd = toUsd(quote.terminalExpenses, rates);
 
   // Overweight surcharge (does not include VAT — added on top)
   const overweightRub = calcOverweightRub(quote);
-  const overweightUsd = rate > 0 ? overweightRub / rate : 0;
+  const overweightUsd = rates.usdRub > 0 ? overweightRub / rates.usdRub : 0;
 
   // Sum without VAT (base services only)
-  const domesticServicesRub = (railUsd + truckUsd + feeUsd + termUsd) * rate;
+  const domesticServicesRub = (railUsd + truckUsd + feeUsd + termUsd) * rates.usdRub;
   const baseUsd = oceanUsd + railUsd + truckUsd + feeUsd + termUsd;
 
   // VAT on Russian services only (rail, truck, forwarding, terminal)
   const vatRub = domesticServicesRub * vatRate;
-  const vatUsd = vatRub / rate;
+  const vatUsd = vatRub / rates.usdRub;
 
   const totalWithoutVatUsd = baseUsd + overweightUsd;
-  const totalWithoutVatRub = totalWithoutVatUsd * rate;
+  const totalWithoutVatRub = totalWithoutVatUsd * rates.usdRub;
   const totalWithVatUsd = totalWithoutVatUsd + vatUsd;
   const totalWithVatRub = totalWithoutVatRub + vatRub;
 
@@ -76,13 +80,13 @@ export function calculateQuoteCost(quote: ForwarderQuote, rate: number): Calcula
     oceanFreightUsd: Math.round(oceanUsd),
     oceanFreightRub: Math.round(oceanRub),
     railFreightUsd: Math.round(railUsd),
-    railFreightRub: Math.round(railUsd * rate),
+    railFreightRub: Math.round(railUsd * rates.usdRub),
     truckDeliveryUsd: Math.round(truckUsd),
-    truckDeliveryRub: Math.round(truckUsd * rate),
+    truckDeliveryRub: Math.round(truckUsd * rates.usdRub),
     forwarderFeeUsd: Math.round(feeUsd),
-    forwarderFeeRub: Math.round(feeUsd * rate),
+    forwarderFeeRub: Math.round(feeUsd * rates.usdRub),
     terminalExpensesUsd: Math.round(termUsd),
-    terminalExpensesRub: Math.round(termUsd * rate),
+    terminalExpensesRub: Math.round(termUsd * rates.usdRub),
     overweightRub: Math.round(overweightRub),
     overweightUsd: Math.round(overweightUsd),
     vatRub: Math.round(vatRub),

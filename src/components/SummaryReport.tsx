@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ForwarderQuote } from '../types/logistics';
+import { ForwarderQuote, ExchangeRates } from '../types/logistics';
 import { calculateQuoteCost, formatUSD, formatRUB } from '../utils/calculations';
 import { 
   FileCheck2, 
@@ -16,21 +16,21 @@ import {
 
 interface Props {
   quotes: ForwarderQuote[];
-  rate: number;
+  rates: ExchangeRates;
   reportDate: string;
 }
 
-export const SummaryReport: React.FC<Props> = ({ quotes, rate, reportDate }) => {
+export const SummaryReport: React.FC<Props> = ({ quotes, rates, reportDate }) => {
   const [copied, setCopied] = useState(false);
 
   // Group quotes by destination
   const serpukhovQuotes = quotes
     .filter(q => q.destination === 'Серпухов')
-    .map(q => ({ quote: q, calc: calculateQuoteCost(q, rate) }));
+    .map(q => ({ quote: q, calc: calculateQuoteCost(q, rates) }));
     
   const stavropolQuotes = quotes
     .filter(q => q.destination === 'Ставрополь')
-    .map(q => ({ quote: q, calc: calculateQuoteCost(q, rate) }));
+    .map(q => ({ quote: q, calc: calculateQuoteCost(q, rates) }));
 
   // Find optimal quotes
   const bestSerpukhovPrice = serpukhovQuotes.length > 0 
@@ -58,7 +58,7 @@ export const SummaryReport: React.FC<Props> = ({ quotes, rate, reportDate }) => 
     const stvContainer = bestStavropolPrice?.quote.containerSize || '40HC';
     const text = `АНАЛИТИЧЕСКИЙ ОТЧЕТ СРАВНЕНИЯ СТАВОК ЭКСПЕДИТОРОВ
 Дата согласования: ${reportDate}
-Расчетный курс USD/RUB: ${rate} ₽ / 1 USD
+Расчетные курсы: USD ${rates.usdRub} ₽ · EUR ${rates.eurRub} ₽ · CNY ${rates.cnyRub} ₽
 Направление: Китай (Шанхай, Нинбо) -> РФ (Серпухов, Ставрополь)
 Итоги указаны с НДС на российские услуги (ЖД, авто, терминал)
 
@@ -137,8 +137,10 @@ export const SummaryReport: React.FC<Props> = ({ quotes, rate, reportDate }) => 
           <div className="text-right sm:border-l sm:border-slate-200 sm:pl-6 space-y-1">
             <div className="text-xs font-semibold text-slate-500">Дата согласования:</div>
             <div className="text-sm font-bold text-slate-900">{reportDate}</div>
-            <div className="text-xs font-semibold text-slate-500 mt-2">Курс пересчета:</div>
-            <div className="text-sm font-extrabold text-blue-700">{rate} RUB / 1 USD</div>
+            <div className="text-xs font-semibold text-slate-500 mt-2">Курсы пересчета:</div>
+            <div className="text-sm font-extrabold text-blue-700">
+              USD {rates.usdRub.toFixed(2)} ₽ · EUR {rates.eurRub.toFixed(2)} ₽ · CNY {rates.cnyRub.toFixed(2)} ₽
+            </div>
           </div>
         </div>
 

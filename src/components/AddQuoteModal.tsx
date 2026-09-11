@@ -1,12 +1,27 @@
 import React, { useState } from 'react';
 import { X, PlusCircle, Check } from 'lucide-react';
-import { ContainerSize, DestinationWarehouse, ForwarderQuote, RouteType } from '../types/logistics';
+import { ContainerSize, Currency, DestinationWarehouse, ForwarderQuote, RouteType } from '../types/logistics';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (quote: ForwarderQuote) => void;
 }
+
+const CURRENCY_LABELS: Record<Currency, string> = { USD: '$', EUR: '€', CNY: '¥', RUB: '₽' };
+const CURRENCY_ORDER: Currency[] = ['USD', 'EUR', 'CNY', 'RUB'];
+
+const CurrencySelect: React.FC<{ value: Currency; onChange: (c: Currency) => void }> = ({ value, onChange }) => (
+  <select
+    value={value}
+    onChange={e => onChange(e.target.value as Currency)}
+    className="px-2 py-1.5 text-xs bg-slate-200 border-y border-r border-slate-300 rounded-r-lg font-bold"
+  >
+    {CURRENCY_ORDER.map(c => (
+      <option key={c} value={c}>{CURRENCY_LABELS[c]}</option>
+    ))}
+  </select>
+);
 
 export const AddQuoteModal: React.FC<Props> = ({ isOpen, onClose, onAdd }) => {
   const [forwarderName, setForwarderName] = useState('');
@@ -16,19 +31,19 @@ export const AddQuoteModal: React.FC<Props> = ({ isOpen, onClose, onAdd }) => {
   const [transitHub, setTransitHub] = useState('');
   
   const [oceanFreight, setOceanFreight] = useState<number>(2000);
-  const [oceanCurrency, setOceanCurrency] = useState<'USD' | 'RUB'>('USD');
+  const [oceanCurrency, setOceanCurrency] = useState<Currency>('USD');
   
   const [railFreight, setRailFreight] = useState<number>(210000);
-  const [railCurrency, setRailCurrency] = useState<'USD' | 'RUB'>('RUB');
+  const [railCurrency, setRailCurrency] = useState<Currency>('RUB');
   
   const [truckDelivery, setTruckDelivery] = useState<number>(28000);
-  const [truckCurrency, setTruckCurrency] = useState<'USD' | 'RUB'>('RUB');
+  const [truckCurrency, setTruckCurrency] = useState<Currency>('RUB');
   
   const [forwarderFee, setForwarderFee] = useState<number>(15000);
-  const [feeCurrency, setFeeCurrency] = useState<'USD' | 'RUB'>('RUB');
+  const [feeCurrency, setFeeCurrency] = useState<Currency>('RUB');
 
   const [terminalExpenses, setTerminalExpenses] = useState<number>(250);
-  const [terminalCurrency, setTerminalCurrency] = useState<'USD' | 'RUB'>('USD');
+  const [terminalCurrency, setTerminalCurrency] = useState<Currency>('USD');
 
   const [transitDaysMin, setTransitDaysMin] = useState<number>(25);
   const [transitDaysMax, setTransitDaysMax] = useState<number>(32);
@@ -198,14 +213,7 @@ export const AddQuoteModal: React.FC<Props> = ({ isOpen, onClose, onAdd }) => {
                     onChange={e => setOceanFreight(Number(e.target.value))}
                     className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-l-lg focus:ring-1 focus:ring-blue-500 outline-hidden"
                   />
-                  <select
-                    value={oceanCurrency}
-                    onChange={e => setOceanCurrency(e.target.value as 'USD' | 'RUB')}
-                    className="px-2 py-1.5 text-xs bg-slate-200 border-y border-r border-slate-300 rounded-r-lg font-bold"
-                  >
-                    <option value="USD">$</option>
-                    <option value="RUB">₽</option>
-                  </select>
+                  <CurrencySelect value={oceanCurrency} onChange={setOceanCurrency} />
                 </div>
               </div>
 
@@ -220,14 +228,7 @@ export const AddQuoteModal: React.FC<Props> = ({ isOpen, onClose, onAdd }) => {
                     onChange={e => setRailFreight(Number(e.target.value))}
                     className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-l-lg focus:ring-1 focus:ring-blue-500 outline-hidden"
                   />
-                  <select
-                    value={railCurrency}
-                    onChange={e => setRailCurrency(e.target.value as 'USD' | 'RUB')}
-                    className="px-2 py-1.5 text-xs bg-slate-200 border-y border-r border-slate-300 rounded-r-lg font-bold"
-                  >
-                    <option value="USD">$</option>
-                    <option value="RUB">₽</option>
-                  </select>
+                  <CurrencySelect value={railCurrency} onChange={setRailCurrency} />
                 </div>
               </div>
 
@@ -242,14 +243,7 @@ export const AddQuoteModal: React.FC<Props> = ({ isOpen, onClose, onAdd }) => {
                     onChange={e => setTruckDelivery(Number(e.target.value))}
                     className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-l-lg focus:ring-1 focus:ring-blue-500 outline-hidden"
                   />
-                  <select
-                    value={truckCurrency}
-                    onChange={e => setTruckCurrency(e.target.value as 'USD' | 'RUB')}
-                    className="px-2 py-1.5 text-xs bg-slate-200 border-y border-r border-slate-300 rounded-r-lg font-bold"
-                  >
-                    <option value="RUB">₽</option>
-                    <option value="USD">$</option>
-                  </select>
+                  <CurrencySelect value={truckCurrency} onChange={setTruckCurrency} />
                 </div>
               </div>
 
@@ -264,14 +258,7 @@ export const AddQuoteModal: React.FC<Props> = ({ isOpen, onClose, onAdd }) => {
                     onChange={e => setForwarderFee(Number(e.target.value))}
                     className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-l-lg focus:ring-1 focus:ring-blue-500 outline-hidden"
                   />
-                  <select
-                    value={feeCurrency}
-                    onChange={e => setFeeCurrency(e.target.value as 'USD' | 'RUB')}
-                    className="px-2 py-1.5 text-xs bg-slate-200 border-y border-r border-slate-300 rounded-r-lg font-bold"
-                  >
-                    <option value="RUB">₽</option>
-                    <option value="USD">$</option>
-                  </select>
+                  <CurrencySelect value={feeCurrency} onChange={setFeeCurrency} />
                 </div>
               </div>
 
@@ -286,14 +273,7 @@ export const AddQuoteModal: React.FC<Props> = ({ isOpen, onClose, onAdd }) => {
                     onChange={e => setTerminalExpenses(Number(e.target.value))}
                     className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-l-lg focus:ring-1 focus:ring-blue-500 outline-hidden"
                   />
-                  <select
-                    value={terminalCurrency}
-                    onChange={e => setTerminalCurrency(e.target.value as 'USD' | 'RUB')}
-                    className="px-2 py-1.5 text-xs bg-slate-200 border-y border-r border-slate-300 rounded-r-lg font-bold"
-                  >
-                    <option value="USD">$</option>
-                    <option value="RUB">₽</option>
-                  </select>
+                  <CurrencySelect value={terminalCurrency} onChange={setTerminalCurrency} />
                 </div>
               </div>
             </div>

@@ -15,6 +15,15 @@ export interface ValidationWarning {
   severity: 'error' | 'warning';
 }
 
+export interface PriceChange {
+  carrier: string;
+  destination: string;
+  oldPriceUsd: number;
+  newPriceUsd: number;
+  changeUsd: number;
+  changePercent: number;
+}
+
 // --- Validation rules ---
 const VALID_RANGES = {
   oceanFreightUsd: { min: 500, max: 15000, label: 'Морской фрахт' },
@@ -134,16 +143,7 @@ export function deleteSnapshot(id: string) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
 }
 
-export function compareSnapshots(oldSnap: ParsedSnapshot, newSnap: ParsedSnapshot) {
-  interface PriceChange {
-    carrier: string;
-    destination: string;
-    oldPriceUsd: number;
-    newPriceUsd: number;
-    changeUsd: number;
-    changePercent: number;
-  }
-
+export function compareSnapshots(oldSnap: ParsedSnapshot, newSnap: ParsedSnapshot): PriceChange[] {
   const changes: PriceChange[] = [];
 
   newSnap.quotes.forEach(nq => {
@@ -180,4 +180,51 @@ function calcTotal(q: ForwarderQuote): number {
     toUsd(q.forwarderFee.amount, q.forwarderFee.currency) +
     toUsd(q.terminalExpenses.amount, q.terminalExpenses.currency)
   );
+}
+
+/** Сравнение текущих ставок с последним снимком — для уведомлений и графика */
+export function compareNewToLast(
+  quotes: ForwarderQuote[],
+  prev: ParsedSnapshot | undefined
+): PriceChange[] {
+  if (!prev) return [];
+  const current: ParsedSnapshot = { id: 'current', timestamp: Date.now(), date: 'сейчас', source: 'текущие ставки', quotes, fileNames: [] };
+  return compareSnapshots(prev, current);
+}
+
+// --- Sync: export/import of all app settings between browsers ---
+export const APP_STORAGE_KEYS = [
+  'logistics_quotes_v1',
+  'logistics_usd_rate',
+  'logistics_eur_rub_rate',
+  'logistics_cny_rub_rate',
+  'logistics_report_date',
+  'logistics_parse_history',
+];
+
+export function exportAllData(): string {
+  const data: Record<string, unknown> = { __app: 'china-rf-logistics', __version: 2 };
+  APP_STORAGE_KEYS.forEach(key => {
+    const value = localStorage.getItem(key);
+    if (value != null) {
+      try { data[key] = JSON.parse(value); } catch { data[key] = value; }
+    }
+  });
+  return JSON.stringify(data, null, 2);
+}
+
+export function importAllData(raw: string): string[] {
+  const data = JSON.parse(raw);
+  if (data?.__app && data.__app !== 'china-rf-logistics') {
+    throw new Error('Файл не является архивом приложения');
+  }
+  const restored: string[] = [];
+  APP_STORAGE_KEYS.forEach(key => {
+    if (data[key] !== undefined) {
+      const value = typeof data[key] === 'string' ? data[key] : JSON.stringify(data[key]);
+      localStorage.setItem(key, value);
+      restored.push(key);
+    }
+  });
+  return restored;
 }

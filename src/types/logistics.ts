@@ -7,9 +7,11 @@ export type RouteType =
   | 'direct_rail_truck'  // Шанхай -> Прямое ЖД -> Москва/Краснодар/Тимашевск -> Авто
   | 'deep_sea_novorossiysk'; // Шанхай/Нинбо -> Море Новороссийск -> Авто
 
+export type Currency = 'USD' | 'EUR' | 'CNY' | 'RUB';
+
 export interface CostComponent {
   amount: number;
-  currency: 'USD' | 'RUB';
+  currency: Currency;
 }
 
 export interface ForwarderQuote {
@@ -42,10 +44,21 @@ export interface ForwarderQuote {
   equipment: string; // "40'HC"
   validUntil: string;
   comments?: string;
+  favorite?: boolean;   // закреплён в избранном
+  note?: string;        // заметка пользователя ("договорились", "ожидаем ответ")
+}
+
+/** Курсы валют к рублю (для пересчёта любых ставок в USD-эквивалент) */
+export interface ExchangeRates {
+  usdRub: number;
+  eurRub: number;
+  cnyRub: number;
 }
 
 export interface ExchangeRateConfig {
   usdRubRate: number;
+  eurRubRate: number;
+  cnyRubRate: number;
   date: string;
   source: string;
 }

@@ -1,57 +1,68 @@
 import React, { useState } from 'react';
-import { 
-  DestinationWarehouse, 
-  ForwarderQuote, 
-  RouteType 
+import {
+  DestinationWarehouse,
+  ExchangeRates,
+  ForwarderQuote,
+  RouteType
 } from '../types/logistics';
-import { 
-  calculateQuoteCost, 
-  formatUSD, 
-  formatRUB 
+import {
+  calculateQuoteCost,
+  formatUSD,
+  formatRUB
 } from '../utils/calculations';
-import { 
-  DollarSign, 
-  Calendar, 
-  Filter, 
-  Plus, 
-  Download, 
-  ArrowUpDown, 
-  Ship, 
-  Train, 
-  Truck, 
-  Award, 
-  Zap, 
-  Trash2, 
+import {
+  DollarSign,
+  Calendar,
+  Filter,
+  Plus,
+  Download,
+  ArrowUpDown,
+  Ship,
+  Train,
+  Truck,
+  Award,
+  Zap,
+  Trash2,
   Info,
   CheckCircle2,
   TrendingDown,
   Upload,
-  Search
+  Search,
+  Star,
+  FileSpreadsheet,
+  Settings,
+  StickyNote
 } from 'lucide-react';
 
 interface Props {
   quotes: ForwarderQuote[];
-  rate: number;
+  rates: ExchangeRates;
   reportDate: string;
-  onRateChange: (newRate: number) => void;
+  onRatesChange: (rates: ExchangeRates) => void;
   onDateChange: (newDate: string) => void;
   onOpenAddModal: () => void;
   onDeleteQuote: (id: string) => void;
   onOpenImportModal: () => void;
   onExportJSON: () => void;
+  onDownloadTemplate: () => void;
+  onExportSettings: () => void;
+  onImportSettings: (text: string) => void;
   onUpdateQuote?: (quote: ForwarderQuote) => void;
 }
 
 export const LogisticsTable: React.FC<Props> = ({
   quotes,
-  rate,
+  rates,
   reportDate,
-  onRateChange,
+  onRatesChange,
   onDateChange,
   onOpenAddModal,
   onDeleteQuote,
   onOpenImportModal,
   onExportJSON,
+  onDownloadTemplate,
+  onExportSettings,
+  onImportSettings,
   onUpdateQuote
 }) => {
   const [selectedDestination, setSelectedDestination] = useState<'ALL' | DestinationWarehouse>('ALL');
@@ -75,7 +86,7 @@ export const LogisticsTable: React.FC<Props> = ({
   // Calculate costs and sort
   const calculatedList = filteredQuotes.map(quote => ({
     quote,
-    calc: calculateQuoteCost(quote, rate)
+    calc: calculateQuoteCost(quote, rates)
   }));
 
   // Find min price & fastest
@@ -88,6 +99,8 @@ export const LogisticsTable: React.FC<Props> = ({
 
   // Sorting
   calculatedList.sort((a, b) => {
+    const favDiff = (b.quote.favorite ? 1 : 0) - (a.quote.favorite ? 1 : 0);
+    if (favDiff !== 0) return favDiff;
     if (sortBy === 'priceAsc') return a.calc.totalUsd - b.calc.totalUsd;
     if (sortBy === 'priceDesc') return b.calc.totalUsd - a.calc.totalUsd;
     if (sortBy === 'daysAsc') return a.quote.transitDaysMin - b.quote.transitDaysMin;
@@ -173,18 +186,27 @@ export const LogisticsTable: React.FC<Props> = ({
               </div>
               <div>
                 <span className="block text-[11px] font-bold uppercase tracking-wider text-blue-900">
-                  Курс USD / RUB (на день согласования)
+                  Курсы валют к рублю (на день согласования)
                 </span>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="1"
-                    value={rate}
-                    onChange={(e) => onRateChange(parseFloat(e.target.value) || 1)}
-                    className="w-24 text-base font-extrabold text-blue-950 bg-white border border-blue-300 rounded px-2 py-0.5 outline-hidden focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-bold text-blue-900">₽ / 1$</span>
+                <div className="flex items-center gap-2 mt-1">
+                  {([
+                    ['USD', rates.usdRub],
+                    ['EUR', rates.eurRub],
+                    ['CNY', rates.cnyRub],
+                  ] as const).map(([code, value]) => (
+                    <div key={code} className="flex items-center gap-1">
+                      <span className="text-[10px] font-bold text-blue-700">{code}</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={Math.round(value * 100) / 100}
+                        onChange={(e) => onRatesChange({ ...rates, [code === 'USD' ? 'usdRub' : code === 'EUR' ? 'eurRub' : 'cnyRub']: parseFloat(e.target.value) || 0 })}
+                        className="w-20 text-sm font-bold text-blue-950 bg-white border border-blue-300 rounded px-1.5 py-0.5 outline-hidden focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-[11px] text-blue-800">₽</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -241,6 +263,41 @@ export const LogisticsTable: React.FC<Props> = ({
               <Download className="w-4 h-4" />
               JSON
             </button>
+            <button
+              onClick={onDownloadTemplate}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold border border-slate-200 transition"
+              title="Скачать Excel-шаблон для ручного ввода ставок"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Шаблон
+            </button>
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={onExportSettings}
+                className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-l-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold border border-slate-200 transition"
+                title="Экспортировать все настройки (ставки, курсы, историю) в JSON"
+              >
+                <Settings className="w-4 h-4" />
+                Настройки
+              </button>
+              <label
+                className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-r-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold border border-l-0 border-slate-200 transition cursor-pointer"
+                title="Импортировать настройки из JSON-архива"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                Импорт
+                <input
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) f.text().then(onImportSettings).catch(err => alert(`Ошибка чтения файла: ${err.message}`));
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
           </div>
         </div>
 
@@ -366,6 +423,9 @@ export const LogisticsTable: React.FC<Props> = ({
                       <td className="py-4 px-4">
                         <div className="font-bold text-slate-950 text-sm flex items-center gap-1.5">
                           {quote.forwarderName}
+                          {quote.note && (
+                            <StickyNote className="w-3.5 h-3.5 text-amber-500 shrink-0" title="Есть заметка" />
+                          )}
                           {isMinPrice && (
                             <span 
                               title="Минимальная ставка"
@@ -477,7 +537,7 @@ export const LogisticsTable: React.FC<Props> = ({
                           {formatUSD(calc.totalUsd)}
                         </div>
                         <div className="text-[10px] font-semibold text-blue-700/80 uppercase">
-                          по курсу {rate} ₽
+                          по курсу {rates.usdRub.toFixed(2)} ₽/USD
                         </div>
                       </td>
 
@@ -498,6 +558,13 @@ export const LogisticsTable: React.FC<Props> = ({
                       {/* Actions */}
                       <td className="py-4 px-3 text-center">
                         <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => onUpdateQuote?.({ ...quote, favorite: !quote.favorite })}
+                            className={`p-1.5 rounded-lg transition ${quote.favorite ? 'text-amber-500 hover:bg-amber-50' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`}
+                            title={quote.favorite ? 'Убрать из избранного' : 'Закрепить в избранном'}
+                          >
+                            <Star className="w-4 h-4" fill={quote.favorite ? 'currentColor' : 'none'} />
+                          </button>
                           <button
                             onClick={() => setExpandedQuoteId(isExpanded ? null : quote.id)}
                             className="p-1.5 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
@@ -533,15 +600,29 @@ export const LogisticsTable: React.FC<Props> = ({
                                   <strong>Примечание экспедитора:</strong> {quote.comments}
                                 </p>
                               )}
-                              <p className="text-slate-500 text-[11px]">
-                                Ставка действительна до: <strong>{quote.validUntil}</strong>
-                              </p>
+<p className="text-slate-500 text-[11px]">
+                                  Ставка действительна до: <strong>{quote.validUntil}</strong>
+                                </p>
+                                {onUpdateQuote && (
+                                  <div>
+                                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
+                                      <StickyNote className="w-3 h-3" /> Заметка
+                                    </span>
+                                    <textarea
+                                      value={quote.note || ''}
+                                      onChange={(e) => onUpdateQuote({ ...quote, note: e.target.value })}
+                                      placeholder="Ваша заметка к маршруту (например: «договорились о скидке 3%», «ждём ответ»)"
+                                      rows={2}
+                                      className="w-full text-xs text-slate-800 bg-white border border-slate-300 rounded-lg px-2 py-1.5 outline-hidden focus:ring-2 focus:ring-blue-500 resize-y"
+                                    />
+                                  </div>
+                                )}
                             </div>
 
                             <div className="space-y-2 bg-white p-3 rounded-xl border border-slate-200">
-                              <h5 className="font-bold text-slate-900 uppercase tracking-wider text-[11px] mb-2">
-                                Детализация калькуляции (при курсе {rate} ₽/$)
-                              </h5>
+<h5 className="font-bold text-slate-900 uppercase tracking-wider text-[11px] mb-2">
+                                 Детализация калькуляции (курсы USD {rates.usdRub.toFixed(2)} ₽ · EUR {rates.eurRub.toFixed(2)} ₽ · CNY {rates.cnyRub.toFixed(2)} ₽)
+                               </h5>
                               <div className="grid grid-cols-2 gap-y-1.5 text-slate-700">
                                 <span>Морской фрахт (без НДС):</span>
                                 <span className="text-right font-medium">{formatUSD(calc.oceanFreightUsd)} ({formatRUB(calc.oceanFreightRub)})</span>
