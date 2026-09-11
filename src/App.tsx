@@ -17,7 +17,6 @@ import {
   TrendingDown
 } from 'lucide-react';
 import { ExchangeRates, ForwarderQuote } from './types/logistics';
-import { INITIAL_QUOTES } from './data/initialQuotes';
 import { exportAllData, getHistory, importAllData, normalizeQuotes, ParsedSnapshot, compareNewToLast, PriceChange } from './utils/storage';
 import { fetchCbrRates, DEFAULT_RATES } from './utils/cbrRate';
 import { LogisticsTable } from './components/LogisticsTable';
@@ -62,7 +61,7 @@ export default function App() {
         console.error('Error loading quotes', e);
       }
     }
-    return normalizeQuotes(INITIAL_QUOTES);
+    return [];
   });
 
   const [history, setHistory] = useState<ParsedSnapshot[]>(() => getHistory());
@@ -134,8 +133,8 @@ export default function App() {
   };
 
   const handleResetQuotes = () => {
-    if (window.confirm('Сбросить ставки к исходным данным?')) {
-      setQuotes(INITIAL_QUOTES);
+    if (window.confirm('Очистить все ставки? Данные будут удалены без возможности восстановления.')) {
+      setQuotes([]);
     }
   };
 

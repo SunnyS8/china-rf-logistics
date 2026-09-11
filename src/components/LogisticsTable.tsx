@@ -409,6 +409,18 @@ export const LogisticsTable: React.FC<Props> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-800">
+              {calculatedList.length === 0 && (
+                <tr>
+                  <td colSpan={12} className="py-14 px-4 text-center">
+                    <div className="text-3xl mb-2">📦</div>
+                    <div className="text-slate-800 font-semibold mb-1">Нет данных о ставках</div>
+                    <div className="text-slate-500 text-xs leading-relaxed">
+                      Импортируйте свой Excel-прайс вкладкой «Импорт» или добавьте ставку вручную
+                      (кнопка «+ Добавить ставку»).
+                    </div>
+                  </td>
+                </tr>
+              )}
               {calculatedList.map(({ quote, calc }) => {
                 const isMinPrice = calc.totalUsd === minPriceUsd && calculatedList.length > 1;
                 const isFastest = quote.transitDaysMin === minDays && calculatedList.length > 1;
