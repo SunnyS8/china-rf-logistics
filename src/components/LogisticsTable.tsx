@@ -39,6 +39,7 @@ interface Props {
   onDeleteQuote: (id: string) => void;
   onOpenImportModal: () => void;
   onExportJSON: () => void;
+  onUpdateQuote?: (quote: ForwarderQuote) => void;
 }
 
 export const LogisticsTable: React.FC<Props> = ({
@@ -50,7 +51,8 @@ export const LogisticsTable: React.FC<Props> = ({
   onOpenAddModal,
   onDeleteQuote,
   onOpenImportModal,
-  onExportJSON
+  onExportJSON,
+  onUpdateQuote
 }) => {
   const [selectedDestination, setSelectedDestination] = useState<'ALL' | DestinationWarehouse>('ALL');
   const [selectedRouteType, setSelectedRouteType] = useState<'ALL' | RouteType>('ALL');
@@ -387,6 +389,10 @@ export const LogisticsTable: React.FC<Props> = ({
                           <span className="font-mono bg-slate-100 px-1.5 py-0.2 rounded text-[11px] text-slate-700">
                             {quote.equipment}
                           </span>
+                          <span>•</span>
+                          <span className="text-[11px] text-slate-600">
+                            {formatRUB(quote.overweightRateRub)}/т перевес
+                          </span>
                         </div>
                       </td>
 
@@ -537,25 +543,99 @@ export const LogisticsTable: React.FC<Props> = ({
                                 Детализация калькуляции (при курсе {rate} ₽/$)
                               </h5>
                               <div className="grid grid-cols-2 gap-y-1.5 text-slate-700">
-                                <span>Морской фрахт:</span>
+                                <span>Морской фрахт (без НДС):</span>
                                 <span className="text-right font-medium">{formatUSD(calc.oceanFreightUsd)} ({formatRUB(calc.oceanFreightRub)})</span>
 
-                                <span>Ж/Д доставка:</span>
+                                <span>Ж/Д доставка (с НДС):</span>
                                 <span className="text-right font-medium">{formatUSD(calc.railFreightUsd)} ({formatRUB(calc.railFreightRub)})</span>
 
-                                <span>Автовывоз (склад):</span>
+                                <span>Автовывоз (с НДС):</span>
                                 <span className="text-right font-medium">{formatUSD(calc.truckDeliveryUsd)} ({formatRUB(calc.truckDeliveryRub)})</span>
 
-                                <span>Комиссия экспедитора:</span>
+                                <span>Комиссия экспедитора (с НДС):</span>
                                 <span className="text-right font-medium">{formatUSD(calc.forwarderFeeUsd)} ({formatRUB(calc.forwarderFeeRub)})</span>
 
-                                <span>Терминал / Растаможка:</span>
+                                <span>Терминал / Растаможка (с НДС):</span>
                                 <span className="text-right font-medium">{formatUSD(calc.terminalExpensesUsd)} ({formatRUB(calc.terminalExpensesRub)})</span>
-                                
-                                <div className="col-span-2 pt-2 border-t border-slate-200 flex justify-between font-bold text-blue-900 text-sm">
-                                  <span>Итого к оплате:</span>
-                                  <span>{formatUSD(calc.totalUsd)} / {formatRUB(calc.totalRub)}</span>
+
+                                <span>Перевес {quote.weightTons - quote.maxWeightTons > 0 ? `(+${quote.weightTons - quote.maxWeightTons} т)` : '(нет)'}:</span>
+                                <span className="text-right font-medium text-amber-700">
+                                  {calc.overweightRub > 0 ? formatUSD(calc.overweightUsd) + ' (' + formatRUB(calc.overweightRub) + ')' : '—'}
+                                </span>
+
+                                <span>НДС ({quote.vatRate}% на российские услуги):</span>
+                                <span className="text-right font-medium text-emerald-700">
+                                  {quote.vatRate > 0 ? formatUSD(calc.vatUsd) + ' (' + formatRUB(calc.vatRub) + ')' : '—'}
+                                </span>
+
+                                <div className="col-span-2 pt-2 border-t border-slate-200 flex justify-between font-bold text-slate-900 text-sm">
+                                  <span>Итого без НДС:</span>
+                                  <span>{formatUSD(calc.totalWithoutVatUsd)} / {formatRUB(calc.totalWithoutVatRub)}</span>
                                 </div>
+
+                                <div className="col-span-2 border-t border-slate-200 flex justify-between font-bold text-blue-900 text-sm pt-2">
+                                  <span>Итого к оплате (с НДС):</span>
+                                  <span>{formatUSD(calc.totalWithVatUsd)} / {formatRUB(calc.totalWithVatRub)}</span>
+                                </div>
+
+                                {onUpdateQuote && (
+                                  <div className="mt-4 pt-3 border-t border-slate-200">
+                                    <h5 className="font-bold text-slate-900 uppercase tracking-wider text-[11px] mb-2">
+                                      Параметры контейнера
+                                    </h5>
+                                    <div className="flex flex-wrap items-center gap-4">
+                                      <div>
+                                        <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                                          Контейнер
+                                        </span>
+                                        <div className="flex rounded-lg overflow-hidden border border-slate-300">
+                                          {(['20GP', '40HC'] as const).map(size => (
+                                            <button
+                                              key={size}
+                                              onClick={() => onUpdateQuote({ ...quote, containerSize: size, equipment: size === '20GP' ? "20'GP" : "40'HC" })}
+                                              className={`px-3 py-1 text-xs font-bold transition ${
+                                                quote.containerSize === size
+                                                  ? 'bg-blue-600 text-white'
+                                                  : 'bg-white text-slate-600 hover:bg-slate-100'
+                                              }`}
+                                            >
+                                              {size === '20GP' ? "20'GP" : "40'HC"}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+
+                                      <div>
+                                        <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                                          Вес груза, т (включено {quote.maxWeightTons} т)
+                                        </span>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          step="0.5"
+                                          value={quote.weightTons}
+                                          onChange={(e) => onUpdateQuote({ ...quote, weightTons: Math.max(0, parseFloat(e.target.value) || 0) })}
+                                          className="w-24 text-sm font-semibold text-slate-800 bg-white border border-slate-300 rounded-lg px-2 py-1 outline-hidden focus:ring-2 focus:ring-blue-500"
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                                          Ставка НДС (росс. услуги)
+                                        </span>
+                                        <select
+                                          value={quote.vatRate}
+                                          onChange={(e) => onUpdateQuote({ ...quote, vatRate: parseInt(e.target.value) })}
+                                          className="text-xs font-semibold text-slate-800 bg-white border border-slate-300 rounded-lg px-2 py-1 outline-hidden"
+                                        >
+                                          <option value={0}>Без НДС</option>
+                                          <option value={5}>НДС 5%</option>
+                                          <option value={20}>НДС 20%</option>
+                                        </select>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>

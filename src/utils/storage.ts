@@ -83,6 +83,23 @@ export function validateAllQuotes(quotes: ForwarderQuote[]): Map<string, Validat
   return result;
 }
 
+// --- Migration of old-structure quotes ---
+export function normalizeQuote(q: Partial<ForwarderQuote>): ForwarderQuote {
+  const is20 = (q.containerSize === '20GP') || /20\s*['']?\s*GP/i.test(q.equipment || '');
+  return {
+    containerSize: is20 ? '20GP' : (q.containerSize || '40HC'),
+    weightTons: q.weightTons ?? 26,
+    maxWeightTons: q.maxWeightTons ?? (is20 ? 21 : 20),
+    overweightRateRub: q.overweightRateRub ?? 2000,
+    vatRate: q.vatRate ?? 20,
+    ...q,
+  } as ForwarderQuote;
+}
+
+export function normalizeQuotes(quotes: ForwarderQuote[]): ForwarderQuote[] {
+  return (quotes || []).map(q => normalizeQuote(q));
+}
+
 // --- History / Snapshots ---
 const STORAGE_KEY = 'logistics_parse_history';
 

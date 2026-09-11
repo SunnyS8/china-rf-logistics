@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, PlusCircle, Check } from 'lucide-react';
-import { DestinationWarehouse, ForwarderQuote, RouteType } from '../types/logistics';
+import { ContainerSize, DestinationWarehouse, ForwarderQuote, RouteType } from '../types/logistics';
 
 interface Props {
   isOpen: boolean;
@@ -34,6 +34,12 @@ export const AddQuoteModal: React.FC<Props> = ({ isOpen, onClose, onAdd }) => {
   const [transitDaysMax, setTransitDaysMax] = useState<number>(32);
   const [comments, setComments] = useState('');
 
+  const [containerSize, setContainerSize] = useState<ContainerSize>('40HC');
+  const [weightTons, setWeightTons] = useState<number>(26);
+  const [maxWeightTons, setMaxWeightTons] = useState<number>(20);
+  const [overweightRateRub, setOverweightRateRub] = useState<number>(2000);
+  const [vatRate, setVatRate] = useState<number>(20);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -55,7 +61,12 @@ export const AddQuoteModal: React.FC<Props> = ({ isOpen, onClose, onAdd }) => {
       terminalExpenses: { amount: Number(terminalExpenses) || 0, currency: terminalCurrency },
       transitDaysMin: Number(transitDaysMin) || 20,
       transitDaysMax: Number(transitDaysMax) || 30,
-      equipment: "40'HC",
+      containerSize,
+      weightTons: Number(weightTons) || 0,
+      maxWeightTons: Number(maxWeightTons) || 0,
+      overweightRateRub: Number(overweightRateRub) || 0,
+      vatRate,
+      equipment: containerSize === '20GP' ? "20'GP" : "40'HC",
       validUntil: '2026-10-31',
       comments: comments.trim()
     };
@@ -285,6 +296,84 @@ export const AddQuoteModal: React.FC<Props> = ({ isOpen, onClose, onAdd }) => {
                   </select>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Container & Weight Parameters */}
+          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              Контейнер, вес и НДС
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-xs text-slate-600 mb-1">Контейнер</label>
+                <select
+                  value={containerSize}
+                  onChange={e => {
+                    const size = e.target.value as ContainerSize;
+                    setContainerSize(size);
+                    if (size === '20GP') {
+                      setWeightTons(18);
+                      setMaxWeightTons(21);
+                    } else {
+                      setWeightTons(26);
+                      setMaxWeightTons(20);
+                    }
+                  }}
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 outline-hidden bg-white"
+                >
+                  <option value="20GP">20'GP</option>
+                  <option value="40HC">40'HC</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-600 mb-1">Вес груза, т</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={weightTons}
+                  onChange={e => setWeightTons(Number(e.target.value))}
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-600 mb-1">Включено в ставку, т</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={maxWeightTons}
+                  onChange={e => setMaxWeightTons(Number(e.target.value))}
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-600 mb-1">Перевес, ₽/т</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={overweightRateRub}
+                  onChange={e => setOverweightRateRub(Number(e.target.value))}
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 outline-hidden"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <label className="block text-xs text-slate-600">Ставка НДС (на росс. услуги):</label>
+              <select
+                value={vatRate}
+                onChange={e => setVatRate(Number(e.target.value))}
+                className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 outline-hidden bg-white"
+              >
+                <option value={0}>Без НДС</option>
+                <option value={5}>5%</option>
+                <option value={20}>20%</option>
+              </select>
             </div>
           </div>
 

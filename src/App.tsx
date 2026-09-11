@@ -8,10 +8,13 @@ import {
   Ship, 
   CheckCircle2,
   Upload,
-  Download
+  Download,
+  RefreshCw
 } from 'lucide-react';
 import { ForwarderQuote } from './types/logistics';
 import { INITIAL_QUOTES } from './data/initialQuotes';
+import { normalizeQuotes } from './utils/storage';
+import { fetchCbrRate } from './utils/cbrRate';
 import { LogisticsTable } from './components/LogisticsTable';
 import { RouteMap } from './components/RouteMap';
 import { SummaryReport } from './components/SummaryReport';
@@ -40,12 +43,12 @@ export default function App() {
     const saved = localStorage.getItem('logistics_quotes_v1');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        return normalizeQuotes(JSON.parse(saved));
       } catch (e) {
         console.error('Error loading quotes', e);
       }
     }
-    return INITIAL_QUOTES;
+    return normalizeQuotes(INITIAL_QUOTES);
   });
 
   // Modal states
@@ -66,6 +69,27 @@ export default function App() {
     localStorage.setItem('logistics_quotes_v1', JSON.stringify(quotes));
   }, [quotes]);
 
+  // Auto-fetch CBR exchange rate for the selected date
+  const [rateSource, setRateSource] = useState<'cbr' | 'manual'>('cbr');
+  const [rateError, setRateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRateError(null);
+    fetchCbrRate(reportDate)
+      .then(val => {
+        if (cancelled) return;
+        setRate(val);
+        setRateSource('cbr');
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRateError('Не удалось получить курс ЦБ, введите вручную');
+        setRateSource('manual');
+      });
+    return () => { cancelled = true; };
+  }, [reportDate]);
+
   const handleAddQuote = (newQuote: ForwarderQuote) => {
     setQuotes(prev => [newQuote, ...prev]);
   };
@@ -84,6 +108,10 @@ export default function App() {
 
   const handleImportQuotes = (imported: ForwarderQuote[]) => {
     setQuotes(prev => [...imported, ...prev]);
+  };
+
+  const handleUpdateQuote = (updated: ForwarderQuote) => {
+    setQuotes(prev => prev.map(q => q.id === updated.id ? updated : q));
   };
 
   const handleRestoreQuotes = (restored: ForwarderQuote[]) => {
@@ -129,16 +157,38 @@ export default function App() {
             </div>
 
             {/* Quick Currency & Date Indicators in Header */}
-            <div className="flex items-center gap-4 text-xs">
+            <div className="relative flex items-center gap-4 text-xs">
               <div className="flex items-center gap-2 bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700/80">
                 <DollarSign className="w-4 h-4 text-emerald-400" />
                 <span className="text-slate-300">Курс:</span>
                 <span className="font-mono font-bold text-white">{rate} ₽</span>
+                {rateSource === 'cbr' && (
+                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 font-semibold">
+                    ЦБ
+                  </span>
+                )}
+                <button
+                  onClick={() => {
+                    setRateError(null);
+                    fetchCbrRate(reportDate)
+                      .then(val => { setRate(val); setRateSource('cbr'); })
+                      .catch(() => setRateError('Не удалось получить курс ЦБ'));
+                  }}
+                  title="Обновить курс ЦБ"
+                  className="p-1 rounded-lg hover:bg-slate-700/60 text-slate-400 hover:text-white transition"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
               </div>
               <div className="flex items-center gap-2 bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700/80">
                 <Calendar className="w-4 h-4 text-blue-400" />
                 <span className="text-slate-300">{reportDate}</span>
               </div>
+              {rateError && (
+                <div className="absolute top-full right-4 mt-2 text-[11px] text-red-300 bg-red-950/80 border border-red-800 rounded-lg px-3 py-2 shadow-lg">
+                  {rateError}
+                </div>
+              )}
             </div>
 
           </div>
@@ -204,6 +254,7 @@ export default function App() {
             onDeleteQuote={handleDeleteQuote}
             onOpenImportModal={() => setIsImportModalOpen(true)}
             onExportJSON={handleExportJSON}
+            onUpdateQuote={handleUpdateQuote}
           />
         )}
 

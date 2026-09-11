@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { ForwarderQuote, DestinationWarehouse, RouteType, CostComponent } from '../types/logistics';
+import { ForwarderQuote, DestinationWarehouse, RouteType, ContainerSize } from '../types/logistics';
 
 interface RawRoute {
   carrier: string;
@@ -16,6 +16,11 @@ interface RawRoute {
   terminalRub: number;
   transitDaysMin: number;
   transitDaysMax: number;
+  containerSize: ContainerSize;
+  weightTons: number;
+  maxWeightTons: number;
+  overweightRateRub: number;
+  vatRate: number;
 }
 
 function parseNumber(str: string): number {
@@ -23,6 +28,46 @@ function parseNumber(str: string): number {
   const cleaned = str.replace(/[^\d.,]/g, '').replace(',', '.');
   const num = parseFloat(cleaned);
   return isNaN(num) ? 0 : num;
+}
+
+function detectContainerSize(text: string): ContainerSize {
+  if (/20\s*(?:GP|фут|ft)/i.test(text)) return '20GP';
+  return '40HC';
+}
+
+function detectWeight(text: string): number {
+  const match = text.match(/(\d{1,3}(?:[.,]\d+)?)\s*(?:тн|т\b|тонн)/i);
+  return match ? parseNumber(match[1]) : 26;
+}
+
+function detectOverweightRate(text: string): number {
+  // "перевес + 2000 руб. за каждую неполную тонну свыше 20ти"
+  const match = text.match(/перевес\s*[^:]*?(\d[\d\s]*)-(?:\u0440\u0443\u0431|\u20bd)/i)
+    || text.match(/(?:перевес|лишн\w* тонн\w*)\s*(?:за\s*)?(\d[\d\s]*)\s*(?:руб|\u20bd|р\.)/i);
+  return match ? parseNumber(match[1]) : 2000;
+}
+
+function detectVat(text: string): number {
+  const lower = text.toLowerCase();
+  const vatMatch = lower.match(/ндс\s*(\d+)/);
+  if (vatMatch) return parseInt(vatMatch[1]);
+  if (lower.includes('без ндс') || lower.includes('0%')) return 0;
+  if (lower.includes('ндс 5')) return 5;
+  return 20;
+}
+
+function defaultRawRoute(overrides: Partial<RawRoute>): RawRoute {
+  const text = overrides.routeDescription || '';
+  return {
+    freightUsd: 0, railRub: 0, truckRub: 0, forwardingRub: 0, terminalRub: 0,
+    transitDaysMin: 25, transitDaysMax: 40,
+    containerSize: detectContainerSize(text),
+    weightTons: detectWeight(text),
+    maxWeightTons: /20\s*(?:GP|фут|ft)/i.test(text) ? 21 : 20,
+    overweightRateRub: detectOverweightRate(text),
+    vatRate: detectVat(text),
+    ...overrides
+  } as RawRoute;
 }
 
 function extractNumbersFromText(text: string): { freight: number; rail: number; truck: number; fee: number; terminal: number; days: string } {
@@ -90,7 +135,7 @@ function parseIglExcel(workbook: XLSX.WorkBook): RawRoute[] {
         if (currentRoute.freightUsd > 0 || currentRoute.railRub > 0) {
           routes.push(currentRoute as RawRoute);
         }
-        currentRoute = {
+        currentRoute = defaultRawRoute({
           carrier: 'ИГЛ',
           sheet: sheetName,
           destination: detectDestination(text + ' ' + sheetName),
@@ -100,7 +145,7 @@ function parseIglExcel(workbook: XLSX.WorkBook): RawRoute[] {
           routeDescription: text,
           freightUsd: 0, railRub: 0, truckRub: 0, forwardingRub: 0, terminalRub: 0,
           transitDaysMin: 25, transitDaysMax: 40
-        };
+        });
       }
 
       // Extract costs from each row
@@ -140,7 +185,7 @@ function parseGaleosExcel(workbook: XLSX.WorkBook): RawRoute[] {
       if (currentRoute.freightUsd > 0) {
         routes.push(currentRoute as RawRoute);
       }
-      currentRoute = {
+      currentRoute = defaultRawRoute({
         carrier: 'Галеос',
         sheet: 'Лист1',
         destination: detectDestination(text),
@@ -150,7 +195,7 @@ function parseGaleosExcel(workbook: XLSX.WorkBook): RawRoute[] {
         routeDescription: text.substring(0, 200),
         freightUsd: 0, railRub: 0, truckRub: 0, forwardingRub: 0, terminalRub: 0,
         transitDaysMin: 30, transitDaysMax: 45
-      };
+      });
     }
 
     // Parse FOB line - freight in USD
@@ -212,7 +257,7 @@ function parseDelporteExcel(workbook: XLSX.WorkBook): RawRoute[] {
       const feeMatch = text.match(/(?:экспедир|вознагражд)\s*([\d\s]+)/i);
 
       if (freightMatch || railMatch) {
-        routes.push({
+        routes.push(defaultRawRoute({
           carrier: 'Дельпорте',
           sheet: 'Лист1',
           destination: 'Ставрополь',
@@ -227,7 +272,7 @@ function parseDelporteExcel(workbook: XLSX.WorkBook): RawRoute[] {
           terminalRub: 0,
           transitDaysMin: 35,
           transitDaysMax: 45
-        });
+        }));
       }
     }
 
@@ -238,7 +283,7 @@ function parseDelporteExcel(workbook: XLSX.WorkBook): RawRoute[] {
       const truckMatch = text.match(/(?:Ставрополь|вывоз)\s*([\d\s]+)/i);
       const feeMatch = text.match(/(?:экспедир|вознагражд)\s*([\d\s]+)/i);
 
-      routes.push({
+      routes.push(defaultRawRoute({
         carrier: 'Дельпорте',
         sheet: 'Лист1',
         destination: detectDestination(text),
@@ -253,7 +298,7 @@ function parseDelporteExcel(workbook: XLSX.WorkBook): RawRoute[] {
         terminalRub: terminalMatch ? parseNumber(terminalMatch[1]) : 50000,
         transitDaysMin: 22,
         transitDaysMax: 28
-      });
+      }));
     }
   });
 
@@ -277,7 +322,7 @@ function parsePortQingdaoExcel(workbook: XLSX.WorkBook): RawRoute[] {
       const fee = data[5] ? Number(data[5][col]) || 0 : 0;
 
       if (freight > 0 || rail > 0) {
-        routes.push({
+        routes.push(defaultRawRoute({
           carrier: carrierName.split('-')[0].trim(),
           sheet: 'Лист1',
           destination: 'Ставрополь',
@@ -292,7 +337,7 @@ function parsePortQingdaoExcel(workbook: XLSX.WorkBook): RawRoute[] {
           terminalRub: 0,
           transitDaysMin: col === 4 ? 30 : 40,
           transitDaysMax: col === 4 ? 35 : 50
-        });
+        }));
       }
     }
   }
@@ -309,6 +354,11 @@ function rawRouteToQuote(raw: RawRoute, idx: number): ForwarderQuote {
     routeType: raw.routeType,
     routeDescription: raw.routeDescription,
     transitHub: raw.transitHub,
+    containerSize: raw.containerSize || '40HC',
+    weightTons: raw.weightTons || 26,
+    maxWeightTons: raw.maxWeightTons || 20,
+    overweightRateRub: raw.overweightRateRub || 2000,
+    vatRate: raw.vatRate || 20,
     oceanFreight: { amount: raw.freightUsd, currency: 'USD' },
     railFreight: { amount: raw.railRub, currency: 'RUB' },
     truckDelivery: { amount: raw.truckRub, currency: 'RUB' },
@@ -316,7 +366,7 @@ function rawRouteToQuote(raw: RawRoute, idx: number): ForwarderQuote {
     terminalExpenses: { amount: raw.terminalRub, currency: 'RUB' },
     transitDaysMin: raw.transitDaysMin || 25,
     transitDaysMax: raw.transitDaysMax || 40,
-    equipment: "40'HC",
+    equipment: raw.containerSize === '20GP' ? "20'GP" : "40'HC",
     validUntil: '2026-10-31',
     comments: ''
   };
@@ -348,7 +398,7 @@ export function parseExcelFile(file: File): Promise<ForwarderQuote[]> {
             const text = row.filter(Boolean).join(' ');
             const numbers = extractNumbersFromText(text);
             if (numbers.freight > 0 || numbers.rail > 0) {
-              routes.push({
+              routes.push(defaultRawRoute({
                 carrier: file.name.replace('.xlsx', ''),
                 sheet: sheetName,
                 destination: detectDestination(text),
@@ -363,7 +413,7 @@ export function parseExcelFile(file: File): Promise<ForwarderQuote[]> {
                 terminalRub: numbers.terminal,
                 transitDaysMin: 25,
                 transitDaysMax: 40
-              });
+              }));
             }
           });
         });

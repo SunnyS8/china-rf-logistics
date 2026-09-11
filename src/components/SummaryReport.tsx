@@ -54,25 +54,29 @@ export const SummaryReport: React.FC<Props> = ({ quotes, rate, reportDate }) => 
   };
 
   const handleCopySummary = () => {
+    const serpContainer = bestSerpukhovPrice?.quote.containerSize || '40HC';
+    const stvContainer = bestStavropolPrice?.quote.containerSize || '40HC';
     const text = `АНАЛИТИЧЕСКИЙ ОТЧЕТ СРАВНЕНИЯ СТАВОК ЭКСПЕДИТОРОВ
 Дата согласования: ${reportDate}
 Расчетный курс USD/RUB: ${rate} ₽ / 1 USD
 Направление: Китай (Шанхай, Нинбо) -> РФ (Серпухов, Ставрополь)
-Контейнер: 40'HC
+Итоги указаны с НДС на российские услуги (ЖД, авто, терминал)
 
-1. СКЛАД СЕРПУХОВ (Московская обл.):
+1. СКЛАД СЕРПУХОВ (Московская обл., контейнер ${serpContainer}):
 • Лучшая ставка: ${bestSerpukhovPrice?.quote.forwarderName || '—'}
-  - Итого USD: ${bestSerpukhovPrice ? formatUSD(bestSerpukhovPrice.calc.totalUsd) : '—'} (${bestSerpukhovPrice ? formatRUB(bestSerpukhovPrice.calc.totalRub) : '—'})
+  - Итого USD: ${bestSerpukhovPrice ? formatUSD(bestSerpukhovPrice.calc.totalWithVatUsd) : '—'} (${bestSerpukhovPrice ? formatRUB(bestSerpukhovPrice.calc.totalWithVatRub) : '—'})
   - Маршрут: ${bestSerpukhovPrice?.quote.routeDescription || '—'}
   - Срок: ${bestSerpukhovPrice?.quote.transitDaysMin}-${bestSerpukhovPrice?.quote.transitDaysMax} дней
-• Самый быстрый маршрут: ${fastestSerpukhov?.quote.forwarderName || '—'} (${fastestSerpukhov?.quote.transitDaysMin}-${fastestSerpukhov?.quote.transitDaysMax} дн.) — ${fastestSerpukhov ? formatUSD(fastestSerpukhov.calc.totalUsd) : '—'}
+  - Вес: ${bestSerpukhovPrice?.quote.weightTons ?? 26} т (перевес: ${bestSerpukhovPrice && bestSerpukhovPrice.calc.overweightRub > 0 ? formatRUB(bestSerpukhovPrice.calc.overweightRub) : 'нет'})
+• Самый быстрый маршрут: ${fastestSerpukhov?.quote.forwarderName || '—'} (${fastestSerpukhov?.quote.transitDaysMin}-${fastestSerpukhov?.quote.transitDaysMax} дн.) — ${fastestSerpukhov ? formatUSD(fastestSerpukhov.calc.totalWithVatUsd) : '—'}
 
-2. СКЛАД СТАВРОПОЛЬ (Ставропольский край):
+2. СКЛАД СТАВРОПОЛЬ (Ставропольский край, контейнер ${stvContainer}):
 • Лучшая ставка: ${bestStavropolPrice?.quote.forwarderName || '—'}
-  - Итого USD: ${bestStavropolPrice ? formatUSD(bestStavropolPrice.calc.totalUsd) : '—'} (${bestStavropolPrice ? formatRUB(bestStavropolPrice.calc.totalRub) : '—'})
+  - Итого USD: ${bestStavropolPrice ? formatUSD(bestStavropolPrice.calc.totalWithVatUsd) : '—'} (${bestStavropolPrice ? formatRUB(bestStavropolPrice.calc.totalWithVatRub) : '—'})
   - Маршрут: ${bestStavropolPrice?.quote.routeDescription || '—'}
   - Срок: ${bestStavropolPrice?.quote.transitDaysMin}-${bestStavropolPrice?.quote.transitDaysMax} дней
-• Самый быстрый маршрут: ${fastestStavropol?.quote.forwarderName || '—'} (${fastestStavropol?.quote.transitDaysMin}-${fastestStavropol?.quote.transitDaysMax} дн.) — ${fastestStavropol ? formatUSD(fastestStavropol.calc.totalUsd) : '—'}
+  - Вес: ${bestStavropolPrice?.quote.weightTons ?? 26} т (перевес: ${bestStavropolPrice && bestStavropolPrice.calc.overweightRub > 0 ? formatRUB(bestStavropolPrice.calc.overweightRub) : 'нет'})
+• Самый быстрый маршрут: ${fastestStavropol?.quote.forwarderName || '—'} (${fastestStavropol?.quote.transitDaysMin}-${fastestStavropol?.quote.transitDaysMax} дн.) — ${fastestStavropol ? formatUSD(fastestStavropol.calc.totalWithVatUsd) : '—'}
 
 Отчет сформирован в соответствии с техническим заданием.`;
 
@@ -149,7 +153,7 @@ export const SummaryReport: React.FC<Props> = ({ quotes, rate, reportDate }) => 
                 Склад Серпухов (Московская обл.)
               </h3>
               <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full">
-                40'HC контейнер
+                {bestSerpukhovPrice?.quote.containerSize || "40'HC"} контейнер
               </span>
             </div>
 
@@ -205,7 +209,7 @@ export const SummaryReport: React.FC<Props> = ({ quotes, rate, reportDate }) => 
                 Склад Ставрополь (Ставропольский край)
               </h3>
               <span className="text-xs font-bold bg-purple-100 text-purple-800 px-2.5 py-1 rounded-full">
-                40'HC контейнер
+                {bestStavropolPrice?.quote.containerSize || "40'HC"} контейнер
               </span>
             </div>
 
