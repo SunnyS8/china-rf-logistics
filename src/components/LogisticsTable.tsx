@@ -47,6 +47,7 @@ interface Props {
   onDownloadTemplate: () => void;
   onExportSettings: () => void;
   onImportSettings: (text: string) => void;
+  onResetQuotes: () => void;
   onUpdateQuote?: (quote: ForwarderQuote) => void;
 }
 
@@ -63,6 +64,7 @@ export const LogisticsTable: React.FC<Props> = ({
   onDownloadTemplate,
   onExportSettings,
   onImportSettings,
+  onResetQuotes,
   onUpdateQuote
 }) => {
   const [selectedDestination, setSelectedDestination] = useState<'ALL' | DestinationWarehouse>('ALL');
@@ -264,12 +266,12 @@ export const LogisticsTable: React.FC<Props> = ({
               JSON
             </button>
             <button
-              onClick={onDownloadTemplate}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold border border-slate-200 transition"
-              title="Скачать Excel-шаблон для ручного ввода ставок"
+              onClick={onResetQuotes}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-sm font-semibold border border-rose-200 transition"
+              title="Очистить все ставки (удалить из списка)"
             >
-              <FileSpreadsheet className="w-4 h-4" />
-              Шаблон
+              <Trash2 className="w-4 h-4" />
+              Очистить
             </button>
             <div className="flex items-center gap-0.5">
               <button

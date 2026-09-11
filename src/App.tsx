@@ -389,6 +389,7 @@ export default function App() {
             onDownloadTemplate={handleDownloadTemplate}
             onExportSettings={handleExportSettings}
             onImportSettings={handleImportSettings}
+            onResetQuotes={handleResetQuotes}
             onUpdateQuote={handleUpdateQuote}
           />
         )}
@@ -436,13 +437,6 @@ export default function App() {
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <button
-              onClick={handleResetQuotes}
-              className="text-slate-400 hover:text-slate-700 underline"
-            >
-              Сбросить к исходным ставкам
-            </button>
-            <span>•</span>
             <span>Конвертация в USD на дату согласования</span>
           </div>
         </div>
