@@ -1,51 +1,38 @@
-import { ExchangeRates } from '../types/logistics';
+import {ExchangeRates} from '../types/logistics';
 
 export interface CbrRates extends ExchangeRates {
   date: string;
 }
 
-export function cbrArchiveUrl(date: string): string {
-  const [y, m, d] = date.split('-');
-  return `https://www.cbr-xml-daily.ru/archive/${y}/${m}/${d}/daily_json.js`;
+export const DEFAULT_RATES: ExchangeRates = {usdRub: 92.5, eurRub: 108, cnyRub: 13};
+
+function isoToDmy(iso: string): string {
+  const [y, m, d] = iso.split('-');
+  return `${d}.${m}.${y}`;
 }
 
-function parseRates(json: any): ExchangeRates | null {
-  const valute = json?.Valute;
-  if (!valute) return null;
-  const usd = valute.USD?.Value;
-  const eur = valute.EUR?.Value;
-  const cny = valute.CNY?.Value;
-  if (typeof usd !== 'number' || usd <= 0) return null;
-  return {
-    usdRub: usd,
-    eurRub: typeof eur === 'number' && eur > 0 ? eur : usd * 1.08,
-    cnyRub: typeof cny === 'number' && cny > 0 ? cny : usd / 7.1,
-  };
-}
+/**
+ * Fetch CBR rates via our own serverless proxy (/api/cbr).
+ * The proxy calls cbr.ru server-side (no CORS issues) and supports any historical date.
+ */
+export async function fetchCbrRates(isoDate: string, timeoutMs = 10000): Promise<CbrRates> {
+  const dmy = isoToDmy(isoDate);
+  const url = `/api/cbr?date=${encodeURIComponent(dmy)}`;
 
-export const DEFAULT_RATES: ExchangeRates = { usdRub: 92.5, eurRub: 108, cnyRub: 13 };
-
-async function fetchJson(url: string, timeoutMs: number): Promise<ExchangeRates | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, { signal: controller.signal });
-    if (!res.ok) return null;
-    return parseRates(await res.json());
-  } catch {
-    return null;
+    const res = await fetch(url, {signal: controller.signal});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (typeof data.usdRub !== 'number' || data.usdRub <= 0) throw new Error('bad data');
+    return {
+      date: data.date || isoDate,
+      usdRub: data.usdRub,
+      eurRub: data.eurRub ?? data.usdRub * 1.08,
+      cnyRub: data.cnyRub ?? data.usdRub / 7.1,
+    };
   } finally {
     clearTimeout(timer);
   }
-}
-
-/** Курсы ЦБ РФ (USD/EUR/CNY) на дату; фолбэк на последний опубликованный курс */
-export async function fetchCbrRates(date: string, timeoutMs = 8000): Promise<CbrRates> {
-  const archived = await fetchJson(cbrArchiveUrl(date), timeoutMs);
-  if (archived) return { ...archived, date };
-
-  const latest = await fetchJson('https://www.cbr-xml-daily.ru/daily_json.js', timeoutMs);
-  if (latest) return { ...latest, date };
-
-  throw new Error('Не удалось получить курсы ЦБ РФ');
 }
